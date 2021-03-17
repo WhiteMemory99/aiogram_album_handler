@@ -32,11 +32,7 @@ class IsMediaGroup(BoundFilter):
         self.is_media_group = is_media_group
 
     async def check(self, message: types.Message) -> bool:
-        has_media_group_id = message.media_group_id is not None
-        if self.is_media_group:
-            return has_media_group_id
-        else:
-            return not has_media_group_id
+        return bool(message.media_group_id) is self.is_media_group
 
 
 dp.filters_factory.bind(IsMediaGroup)
