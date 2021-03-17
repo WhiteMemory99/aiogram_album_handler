@@ -15,6 +15,7 @@ dp = Dispatcher(bot)
 class GroupItem:
     content_type: str
     file_id: str = None
+    caption: str = None
 
 
 class IsMediaGroup(BoundFilter):
@@ -48,7 +49,7 @@ class AlbumMiddleware(BaseMiddleware):
 
     async def on_process_message(self, message: types.Message, data: dict):
         if message.media_group_id:
-            item = GroupItem(content_type=message.content_type)
+            item = GroupItem(content_type=message.content_type, caption=message.caption)
             if message.photo:
                 item.file_id = message.photo[-1].file_id
             else:
@@ -77,6 +78,7 @@ async def handle_albums(message: types.Message, album: List[GroupItem]):
     for item in album:
         try:
             # We can also add a caption to each file by specifying `"caption": "text"`
+            # GroupItem object stores the caption of each element `item.caption`
             media_group.attach({"media": item.file_id, "type": item.content_type})
         except ValueError:
             return await message.answer(
