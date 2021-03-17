@@ -13,9 +13,10 @@ dp = Dispatcher(bot)
 
 @dataclass
 class GroupItem:
+    message_id: int
     content_type: str
+    caption: str
     file_id: str = None
-    caption: str = None
 
 
 class IsMediaGroup(BoundFilter):
@@ -44,22 +45,29 @@ class AlbumMiddleware(BaseMiddleware):
     album_data: dict = {}
 
     async def on_process_message(self, message: types.Message, data: dict):
-        if message.media_group_id:
-            item = GroupItem(content_type=message.content_type, caption=message.caption)
-            if message.photo:
-                item.file_id = message.photo[-1].file_id
-            else:
-                item.file_id = message[item.content_type].file_id
+        if not message.media_group_id:
+            return
 
-            try:
-                self.album_data[message.media_group_id].append(item)
-                raise CancelHandler()  # Tell aiogram to cancel handler for this group element
-            except KeyError:
-                self.album_data[message.media_group_id] = [item]
-                await asyncio.sleep(0.25)
+        item = GroupItem(
+            message_id=message.message_id,
+            content_type=message.content_type,
+            caption=message.caption,
+        )
 
-                message.conf["is_last"] = True
-                data["album"] = self.album_data[message.media_group_id]
+        if message.photo:
+            item.file_id = message.photo[-1].file_id
+        else:
+            item.file_id = message[item.content_type].file_id
+
+        try:
+            self.album_data[message.media_group_id].append(item)
+            raise CancelHandler()  # Tell aiogram to cancel handler for this group element
+        except KeyError:
+            self.album_data[message.media_group_id] = [item]
+            await asyncio.sleep(0.25)
+
+            message.conf["is_last"] = True
+            data["album"] = self.album_data[message.media_group_id]
 
     async def on_post_process_message(self, message: types.Message, result: dict, data: dict):
         """Clean up after handling our album."""
