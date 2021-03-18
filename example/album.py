@@ -1,5 +1,4 @@
 import asyncio
-from dataclasses import dataclass
 from typing import List
 
 from aiogram import Bot, Dispatcher, executor, types
@@ -9,14 +8,6 @@ from aiogram.dispatcher.middlewares import BaseMiddleware
 
 bot = Bot(token="TOKEN_HERE")  # Place your token here
 dp = Dispatcher(bot)
-
-
-@dataclass
-class GroupItem:
-    message_id: int
-    content_type: str
-    caption: str
-    file_id: str = None
 
 
 class IsMediaGroup(BoundFilter):
@@ -48,23 +39,12 @@ class AlbumMiddleware(BaseMiddleware):
         if not message.media_group_id:
             return
 
-        item = GroupItem(
-            message_id=message.message_id,
-            content_type=message.content_type,
-            caption=message.caption,
-        )
-
-        if message.photo:
-            item.file_id = message.photo[-1].file_id
-        else:
-            item.file_id = message[item.content_type].file_id
-
         try:
-            self.album_data[message.media_group_id].append(item)
+            self.album_data[message.media_group_id].append(message)
             raise CancelHandler()  # Tell aiogram to cancel handler for this group element
         except KeyError:
-            self.album_data[message.media_group_id] = [item]
-            await asyncio.sleep(0.25)
+            self.album_data[message.media_group_id] = [message]
+            await asyncio.sleep(0.01)
 
             message.conf["is_last"] = True
             data["album"] = self.album_data[message.media_group_id]
@@ -76,14 +56,18 @@ class AlbumMiddleware(BaseMiddleware):
 
 
 @dp.message_handler(is_media_group=True, content_types=types.ContentType.ANY)
-async def handle_albums(message: types.Message, album: List[GroupItem]):
+async def handle_albums(message: types.Message, album: List[types.Message]):
     """This handler will receive a complete album of any type."""
     media_group = types.MediaGroup()
-    for item in album:
+    for obj in album:
+        if obj.photo:
+            file_id = obj.photo[-1].file_id
+        else:
+            file_id = obj[obj.content_type].file_id
+
         try:
             # We can also add a caption to each file by specifying `"caption": "text"`
-            # GroupItem object stores the caption of each element `item.caption`
-            media_group.attach({"media": item.file_id, "type": item.content_type})
+            media_group.attach({"media": file_id, "type": obj.content_type})
         except ValueError:
             return await message.answer(
                 "Aiogram 2.11.2 and below doesn't support sending document/audio groups this way."
