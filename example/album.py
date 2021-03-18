@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import List, Union
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import BoundFilter
@@ -35,6 +35,14 @@ class AlbumMiddleware(BaseMiddleware):
 
     album_data: dict = {}
 
+    def __init__(self, latency: Union[int, float] = 0.01):
+        """
+        You can provide custom latency to make sure
+        albums are handled properly in highload.
+        """
+        self.latency = latency
+        super().__init__()
+
     async def on_process_message(self, message: types.Message, data: dict):
         if not message.media_group_id:
             return
@@ -44,7 +52,7 @@ class AlbumMiddleware(BaseMiddleware):
             raise CancelHandler()  # Tell aiogram to cancel handler for this group element
         except KeyError:
             self.album_data[message.media_group_id] = [message]
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.latency)
 
             message.conf["is_last"] = True
             data["album"] = self.album_data[message.media_group_id]
