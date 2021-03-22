@@ -2,32 +2,11 @@ import asyncio
 from typing import List, Union
 
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.dispatcher.filters import BoundFilter
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.dispatcher.middlewares import BaseMiddleware
 
 bot = Bot(token="TOKEN_HERE")  # Place your token here
 dp = Dispatcher(bot)
-
-
-class IsMediaGroup(BoundFilter):
-    """
-    This filter checks if the message is part of a media group.
-
-    `is_media_group=True` - the message is part of a media group
-    `is_media_group=False` - the message is NOT part of a media group
-    """
-
-    key = "is_media_group"
-
-    def __init__(self, is_media_group: bool):
-        self.is_media_group = is_media_group
-
-    async def check(self, message: types.Message) -> bool:
-        return bool(message.media_group_id) is self.is_media_group
-
-
-dp.filters_factory.bind(IsMediaGroup)
 
 
 class AlbumMiddleware(BaseMiddleware):
@@ -77,9 +56,7 @@ async def handle_albums(message: types.Message, album: List[types.Message]):
             # We can also add a caption to each file by specifying `"caption": "text"`
             media_group.attach({"media": file_id, "type": obj.content_type})
         except ValueError:
-            return await message.answer(
-                "Aiogram 2.11.2 and below doesn't support sending document/audio groups this way."
-            )
+            return await message.answer("This type of album is not supported by aiogram.")
 
     await message.answer_media_group(media_group)
 

@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "aiogram_album_handler"
-version = "1.0.0"
+version = "1.1.0"
 description = "A way of handling media groups in aiogram."
 authors = ["Daniil Kovalenko <lisen1510@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-aiogram = { git = "https://github.com/aiogram/aiogram.git", branch = "dev-2.x" }
+aiogram = "^2.12.1"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"
