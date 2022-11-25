@@ -25,7 +25,7 @@ dp = Dispatcher()
 
 
 class MediaGroupMiddleware(BaseMiddleware):
-    ALBUM_DATA: dict[str, list[Message]] = {}
+    ALBUM_DATA: Dict[str, List[Message]] = {}
 
     def __init__(self, delay: Union[int, float] = DEFAULT_DELAY):
         self.delay = delay
