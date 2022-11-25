@@ -1,66 +1,74 @@
 import asyncio
-from typing import List, Union
+from typing import Any, Awaitable, Callable, Dict, List, Union
 
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.dispatcher.handler import CancelHandler
-from aiogram.dispatcher.middlewares import BaseMiddleware
+from aiogram import BaseMiddleware, Bot, Dispatcher, F
+from aiogram.types import (
+    InputMediaAudio,
+    InputMediaDocument,
+    InputMediaPhoto,
+    InputMediaVideo,
+    Message,
+    TelegramObject,
+)
 
-bot = Bot(token="TOKEN_HERE")  # Place your token here
-dp = Dispatcher(bot)
+DEFAULT_DELAY = 0.6
+
+INPUT_MEDIA_MAP = {
+    "photo": InputMediaPhoto,
+    "video": InputMediaVideo,
+    "document": InputMediaDocument,
+    "audio": InputMediaAudio,
+}
+
+bot = Bot("TOKEN")  # TODO: Place your token here
+dp = Dispatcher()
 
 
-class AlbumMiddleware(BaseMiddleware):
-    """This middleware is for capturing media groups."""
+class MediaGroupMiddleware(BaseMiddleware):
+    ALBUM_DATA: dict[str, list[Message]] = {}
 
-    album_data: dict = {}
+    def __init__(self, delay: Union[int, float] = DEFAULT_DELAY):
+        self.delay = delay
 
-    def __init__(self, latency: Union[int, float] = 0.01):
-        """
-        You can provide custom latency to make sure
-        albums are handled properly in highload.
-        """
-        self.latency = latency
-        super().__init__()
-
-    async def on_process_message(self, message: types.Message, data: dict):
-        if not message.media_group_id:
-            return
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: Dict[str, Any],
+    ) -> Any:
+        if not event.media_group_id:
+            return await handler(event, data)
 
         try:
-            self.album_data[message.media_group_id].append(message)
-            raise CancelHandler()  # Tell aiogram to cancel handler for this group element
+            self.ALBUM_DATA[event.media_group_id].append(event)
+            return  # Don't propagate the event
         except KeyError:
-            self.album_data[message.media_group_id] = [message]
-            await asyncio.sleep(self.latency)
+            self.ALBUM_DATA[event.media_group_id] = [event]
+            await asyncio.sleep(self.delay)
+            data["album"] = self.ALBUM_DATA.pop(event.media_group_id)
 
-            message.conf["is_last"] = True
-            data["album"] = self.album_data[message.media_group_id]
-
-    async def on_post_process_message(self, message: types.Message, result: dict, data: dict):
-        """Clean up after handling our album."""
-        if message.media_group_id and message.conf.get("is_last"):
-            del self.album_data[message.media_group_id]
+        return await handler(event, data)
 
 
-@dp.message_handler(is_media_group=True, content_types=types.ContentType.ANY)
-async def handle_albums(message: types.Message, album: List[types.Message]):
+@dp.message(F.media_group_id)
+async def handle_albums(message: Message, album: List[Message]):
     """This handler will receive a complete album of any type."""
-    media_group = types.MediaGroup()
-    for obj in album:
-        if obj.photo:
-            file_id = obj.photo[-1].file_id
+    group_elements = []
+    for element in album:
+        if element.photo:
+            file_id = element.photo[-1].file_id
         else:
-            file_id = obj[obj.content_type].file_id
+            file_id = getattr(element, element.content_type).file_id
 
-        try:
-            # We can also add a caption to each file by specifying `"caption": "text"`
-            media_group.attach({"media": file_id, "type": obj.content_type})
-        except ValueError:
-            return await message.answer("This type of album is not supported by aiogram.")
+        group_elements.append(
+            INPUT_MEDIA_MAP[element.content_type](
+                media=file_id, caption=element.caption, caption_entities=element.caption_entities
+            )
+        )
 
-    await message.answer_media_group(media_group)
+    return message.answer_media_group(group_elements)
 
 
 if __name__ == "__main__":
-    dp.middleware.setup(AlbumMiddleware())
-    executor.start_polling(dp, skip_updates=True)
+    dp.message.middleware(MediaGroupMiddleware())
+    dp.run_polling(bot, allowed_updates=dp.resolve_used_update_types())

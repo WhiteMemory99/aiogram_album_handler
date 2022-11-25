@@ -1,4 +1,4 @@
 # Aiogram media group handler
 
-This repo is a full example of an echo-bot catching media groups.  
-The minimal required aiogram version for this example to work is 2.12.1.
+This repo serves a complete example of an echo-bot with media groups support.  
+The solution has been tested on aiogram **3.0 beta 6**.
