@@ -13,13 +13,6 @@ from aiogram.types import (
 
 DEFAULT_DELAY = 0.6
 
-INPUT_MEDIA_MAP = {
-    "photo": InputMediaPhoto,
-    "video": InputMediaVideo,
-    "document": InputMediaDocument,
-    "audio": InputMediaAudio,
-}
-
 bot = Bot("TOKEN")  # TODO: Place your token here
 dp = Dispatcher()
 
@@ -55,16 +48,19 @@ async def handle_albums(message: Message, album: List[Message]):
     """This handler will receive a complete album of any type."""
     group_elements = []
     for element in album:
+        caption_kwargs = {"caption": element.caption, "caption_entities": element.caption_entities}
         if element.photo:
-            file_id = element.photo[-1].file_id
+            input_media = InputMediaPhoto(media=element.photo[-1].file_id, **caption_kwargs)
+        elif element.video:
+            input_media = InputMediaVideo(media=element.video.file_id, **caption_kwargs)
+        elif element.document:
+            input_media = InputMediaDocument(media=element.document.file_id, **caption_kwargs)
+        elif element.audio:
+            input_media = InputMediaAudio(media=element.audio.file_id, **caption_kwargs)
         else:
-            file_id = getattr(element, element.content_type).file_id
+            return message.answer("This media type isn't supported!")
 
-        group_elements.append(
-            INPUT_MEDIA_MAP[element.content_type](
-                media=file_id, caption=element.caption, caption_entities=element.caption_entities
-            )
-        )
+        group_elements.append(input_media)
 
     return message.answer_media_group(group_elements)
 
